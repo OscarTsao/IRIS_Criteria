@@ -1,0 +1,5 @@
+# BERT base model configuration
+model_name: bert-base-uncased
+num_labels: 2
+dropout: 0.1
+freeze_bert: false

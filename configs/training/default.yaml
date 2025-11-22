@@ -1,0 +1,21 @@
+# Training configuration
+batch_size: 32
+learning_rate: 2e-5
+num_epochs: 10
+weight_decay: 0.01
+
+# Optimization settings (RTX 5090)
+optimization:
+  use_bf16: true          # bfloat16 mixed precision (2x speedup)
+  use_tf32: true          # TF32 operations (2-3x speedup)
+  use_torch_compile: true # JIT compilation (10-20% speedup)
+  fused_adamw: true       # Fused optimizer operations
+
+# Training settings
+gradient_accumulation_steps: 1
+max_grad_norm: 1.0
+warmup_ratio: 0.1
+
+# Data loading
+num_workers: 4
+pin_memory: true

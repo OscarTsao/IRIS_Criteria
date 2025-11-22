@@ -1,0 +1,37 @@
+# Main configuration for DSM-5 NLI Binary Classification
+defaults:
+  - model: bert_base
+  - training: default
+  - hpo: optuna
+  - _self_
+
+# Experiment settings
+experiment_name: dsm5_criteria_matching
+seed: 42
+
+# Data paths
+data:
+  posts_csv: data/redsm5/redsm5_posts.csv
+  annotations_csv: data/redsm5/redsm5_annotations.csv
+  criteria_json: data/DSM5/MDD_Criteira.json
+  max_length: 512
+
+# K-fold cross-validation
+kfold:
+  n_splits: 5
+  group_by_post: true
+
+# MLflow tracking
+mlflow:
+  tracking_uri: "file:./mlruns"  # Change to postgresql://user:password@localhost/mlflow for PostgreSQL
+  experiment_name: ${experiment_name}
+
+# Reproducibility
+reproducibility:
+  seed: ${seed}
+  deterministic: true
+  tf32: true  # Enable TF32 for RTX 5090 (2-3x speedup)
+
+# Paths
+output_dir: outputs/${experiment_name}
+checkpoint_dir: ${output_dir}/checkpoints
