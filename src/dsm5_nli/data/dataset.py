@@ -14,14 +14,29 @@ class DSM5NLIDataset(Dataset):
     Input format: [CLS] post [SEP] criterion [SEP]
     """
 
-    def __init__(self, data: pd.DataFrame, tokenizer, max_length: int = 512):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        tokenizer,
+        max_length: int = 512,
+        verify_format: bool = False,
+    ):
         """Initialize dataset.
 
         Args:
             data: DataFrame with columns: post, criterion, label
             tokenizer: HuggingFace tokenizer
             max_length: Maximum sequence length
+            verify_format: Whether to validate column presence (debug helper)
         """
+        if verify_format:
+            required_columns = {"post", "criterion", "label"}
+            missing = required_columns - set(data.columns)
+            if missing:
+                raise ValueError(
+                    f"DSM5NLIDataset missing required columns: {sorted(missing)}"
+                )
+
         self.data = data.reset_index(drop=True)
         self.tokenizer = tokenizer
         self.max_length = max_length

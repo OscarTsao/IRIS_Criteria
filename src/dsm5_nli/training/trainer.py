@@ -76,7 +76,8 @@ class Trainer:
 
     def __init__(self, model, train_loader, val_loader, optimizer, scheduler,
                  device, use_bf16=False, use_compile=False,
-                 gradient_accumulation_steps=1, max_grad_norm=1.0, mlflow_enabled=True):
+                 gradient_accumulation_steps=1, max_grad_norm=1.0,
+                 mlflow_enabled=True, early_stopping_patience=None):
         """Initialize trainer."""
         self.model = model
         self.train_loader = train_loader
@@ -88,6 +89,8 @@ class Trainer:
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.max_grad_norm = max_grad_norm
         self.mlflow_enabled = mlflow_enabled
+        self.early_stopping_patience = early_stopping_patience
+        self.best_epoch = 0
 
         # Apply torch.compile if requested
         if use_compile and torch.cuda.is_available():
@@ -101,6 +104,9 @@ class Trainer:
 
     def train(self, num_epochs, fold):
         """Train for num_epochs."""
+        epochs_without_improvement = 0
+        patience = self.early_stopping_patience
+
         for epoch in range(1, num_epochs + 1):
             # Train epoch
             self.model.train()
@@ -130,12 +136,27 @@ class Trainer:
                     self.scheduler.step()
                     self.optimizer.zero_grad()
 
-                progress_bar.set_postfix({"loss": f"{total_loss / (step+1):.4f}"})
+            progress_bar.set_postfix({"loss": f"{total_loss / (step+1):.4f}"})
 
             # Evaluate
             val_f1 = self._evaluate()
             if val_f1 > self.best_val_f1:
                 self.best_val_f1 = val_f1
+                self.best_epoch = epoch
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+
+            if (
+                patience is not None
+                and patience > 0
+                and epochs_without_improvement >= patience
+            ):
+                tqdm.write(
+                    f"Early stopping triggered at epoch {epoch} "
+                    f"(best F1 {self.best_val_f1:.4f} at epoch {self.best_epoch})"
+                )
+                break
 
     @torch.no_grad()
     def _evaluate(self):

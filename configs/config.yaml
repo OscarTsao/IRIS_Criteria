@@ -32,6 +32,12 @@ experiment_name: dsm5_criteria_matching
 #   - Typical values: 42, 0, 2023
 seed: 42
 
+# command: CLI command to execute (train, hpo, eval)
+#   - Set via CLI: command=train, command=hpo, command=eval
+#   - Used by cli.py to determine which function to run
+#   - Optional parameters: n_trials (for hpo), fold (for eval)
+command: null
+
 # ============================================================================
 # DATA CONFIGURATION
 # ============================================================================

@@ -25,11 +25,17 @@ batch_size: 32
 learning_rate: 2e-5
 
 # num_epochs: Number of complete passes through training data
-#   - Default: 10 (sufficient for BERT fine-tuning on small datasets)
-#   - Typical range: 3-10 for fine-tuning
+#   - Default: 100 for thorough convergence on this dataset
+#   - Typical range: 3-100 for fine-tuning depending on patience/regularization
 #   - Monitor validation F1 to detect overfitting
-#   - Early stopping not implemented (trains all epochs)
-num_epochs: 10
+#   - Early stopping handles termination before hitting the max epoch count
+num_epochs: 100
+
+# early_stopping_patience: Number of epochs to wait for improvement before stopping
+#   - Patience of 20 prevents wasting compute once validation F1 plateaus
+#   - Counts consecutive epochs without improvement > 0
+#   - Larger patience = longer training, smaller = quicker exits but risk stopping too soon
+early_stopping_patience: 20
 
 # weight_decay: L2 regularization strength for AdamW optimizer
 #   - Default: 0.01 (standard for BERT)

@@ -7,7 +7,6 @@ Usage:
     python -m dsm5_nli.cli eval --fold 0            # Evaluate specific fold
 """
 
-import argparse
 import sys
 from pathlib import Path
 
@@ -117,6 +116,7 @@ def run_single_fold(
         gradient_accumulation_steps=config.training.gradient_accumulation_steps,
         max_grad_norm=config.training.max_grad_norm,
         mlflow_enabled=True,
+        early_stopping_patience=config.training.early_stopping_patience,
     )
 
     # Train
@@ -154,8 +154,8 @@ def run_kfold_training(config: DictConfig):
     # Load data
     pairs_df = load_and_preprocess_data(config)
 
-    # Create K-fold splits
-    splits = create_kfold_splits(pairs_df, n_splits=config.kfold.n_splits)
+    # Create K-fold splits (store to reuse for stats and training)
+    splits = list(create_kfold_splits(pairs_df, n_splits=config.kfold.n_splits))
 
     # Display split statistics
     stats_df = get_fold_statistics(pairs_df, splits)
@@ -221,7 +221,7 @@ def run_hpo(config: DictConfig, n_trials: int):
     pairs_df = load_and_preprocess_data(config)
 
     # Create K-fold splits (will be reused across trials)
-    splits = create_kfold_splits(pairs_df, n_splits=config.kfold.n_splits, verbose=False)
+    splits = list(create_kfold_splits(pairs_df, n_splits=config.kfold.n_splits))
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(config.model.model_name)
@@ -331,6 +331,7 @@ def run_hpo(config: DictConfig, n_trials: int):
                     gradient_accumulation_steps=config.training.gradient_accumulation_steps,
                     max_grad_norm=config.training.max_grad_norm,
                     mlflow_enabled=False,  # Disable per-step logging during HPO
+                    early_stopping_patience=config.training.early_stopping_patience,
                 )
 
                 # Train (fewer epochs for HPO)
@@ -392,38 +393,30 @@ def run_hpo(config: DictConfig, n_trials: int):
         mlflow.log_metric("best_f1", study.best_value)
 
 
-@hydra.main(config_path="../configs", config_name="config", version_base=None)
+@hydra.main(config_path="../../configs", config_name="config", version_base=None)
 def main(config: DictConfig):
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="DSM-5 NLI CLI")
-    parser.add_argument(
-        "command",
-        choices=["train", "hpo", "eval"],
-        help="Command to run",
-    )
-    parser.add_argument(
-        "--n-trials",
-        type=int,
-        default=50,
-        help="Number of HPO trials (for 'hpo' command)",
-    )
-    parser.add_argument(
-        "--fold",
-        type=int,
-        default=None,
-        help="Fold number to evaluate (for 'eval' command)",
-    )
+    # Get command from Hydra config (set via command=train, command=hpo, etc.)
+    command = config.get("command", None)
 
-    args = parser.parse_args()
+    if command is None:
+        console.print("[red]Error:[/red] No command specified. Use command=train, command=hpo, or command=eval")
+        console.print("\nExamples:")
+        console.print("  python -m dsm5_nli.cli command=train")
+        console.print("  python -m dsm5_nli.cli command=hpo n_trials=50")
+        console.print("  python -m dsm5_nli.cli command=eval fold=0")
+        sys.exit(1)
 
-    if args.command == "train":
+    if command == "train":
         run_kfold_training(config)
-    elif args.command == "hpo":
-        run_hpo(config, args.n_trials)
-    elif args.command == "eval":
+    elif command == "hpo":
+        n_trials = config.get("n_trials", 50)
+        run_hpo(config, n_trials)
+    elif command == "eval":
         console.print("[yellow]⚠[/yellow] Evaluation command not yet implemented")
     else:
-        parser.print_help()
+        console.print(f"[red]Error:[/red] Unknown command '{command}'. Use train, hpo, or eval")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

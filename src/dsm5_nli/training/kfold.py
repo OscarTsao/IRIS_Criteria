@@ -48,11 +48,11 @@ def create_kfold_splits(data: pd.DataFrame, n_splits: int = 5, random_state: int
         random_state: Random seed for reproducible splits
 
     Yields:
-        Tuple[pd.DataFrame, pd.DataFrame]: (train_df, val_df) for each fold
+        Tuple[np.ndarray, np.ndarray]: (train_idx, val_idx) indices for each fold
 
     Example:
-        >>> for fold, (train_df, val_df) in enumerate(create_kfold_splits(data)):
-        ...     print(f"Fold {fold}: {len(train_df)} train, {len(val_df)} val")
+        >>> for fold, (train_idx, val_idx) in enumerate(create_kfold_splits(data)):
+        ...     print(f"Fold {fold}: {len(train_idx)} train, {len(val_idx)} val")
     """
     # Create dummy X (indices) - sklearn requires it but we only need y and groups
     X = np.arange(len(data))
@@ -66,8 +66,8 @@ def create_kfold_splits(data: pd.DataFrame, n_splits: int = 5, random_state: int
     sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
     for fold_idx, (train_idx, val_idx) in enumerate(sgkf.split(X, y, groups)):
-        train_df = data.iloc[train_idx].reset_index(drop=True)
-        val_df = data.iloc[val_idx].reset_index(drop=True)
+        train_df = data.iloc[train_idx]
+        val_df = data.iloc[val_idx]
 
         # Critical assertion: Verify no post appears in both train and validation
         # This prevents the model from seeing the same post text during training
@@ -76,7 +76,7 @@ def create_kfold_splits(data: pd.DataFrame, n_splits: int = 5, random_state: int
         val_posts = set(val_df["post_id"].unique())
         assert len(train_posts & val_posts) == 0, f"Fold {fold_idx}: Data leakage detected!"
 
-        yield train_df, val_df
+        yield train_idx, val_idx
 
 
 def get_fold_statistics(data: pd.DataFrame, splits):
@@ -89,7 +89,7 @@ def get_fold_statistics(data: pd.DataFrame, splits):
 
     Args:
         data: Full dataset DataFrame
-        splits: Iterator of (train_df, val_df) tuples from create_kfold_splits()
+        splits: Iterable of (train_idx, val_idx) tuples from create_kfold_splits()
 
     Returns:
         pd.DataFrame: Statistics table with columns:
@@ -102,7 +102,9 @@ def get_fold_statistics(data: pd.DataFrame, splits):
             - Val Pos%: Percentage of positive labels in val
     """
     stats = []
-    for fold_idx, (train_df, val_df) in enumerate(splits):
+    for fold_idx, (train_idx, val_idx) in enumerate(splits):
+        train_df = data.iloc[train_idx]
+        val_df = data.iloc[val_idx]
         stats.append({
             "Fold": fold_idx,
             "Train Size": len(train_df),
