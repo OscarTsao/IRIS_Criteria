@@ -339,19 +339,19 @@ pytest tests/test_multi_model_support.py::TestIntegration -v
 Test all 5 working models and compare:
 ```bash
 # BERT baseline
-python -m Project.cli train model=bert_base
+python -m Project.cli train model=bert_base training.num_epochs=100 training.early_stopping_patience=20
 
 # RoBERTa (robust pretraining)
-python -m Project.cli train model=roberta
+python -m Project.cli train model=roberta training.num_epochs=100 training.early_stopping_patience=20
 
 # DeBERTa-v3 (best NLI performance)
-python -m Project.cli train model=deberta_v3
+python -m Project.cli train model=deberta_v3 training.num_epochs=100 training.early_stopping_patience=20
 
 # ModernBERT (latest 2024)
-python -m Project.cli train model=modernbert
+python -m Project.cli train model=modernbert training.num_epochs=100 training.early_stopping_patience=20
 
 # MentalBERT (domain-adapted)
-python -m Project.cli train model=mentalbert
+python -m Project.cli train model=mentalbert training.num_epochs=100 training.early_stopping_patience=20
 ```
 
 ---

@@ -15,7 +15,7 @@
 MLFLOW_URI ?= sqlite:///mlflow.db
 OPTUNA_URI ?= sqlite:///optuna.db
 PYTHON ?= python3
-N_TRIALS ?= 5000
+N_TRIALS ?= 500
 EXTRA_ARGS ?=
 
 # ============================================================================
@@ -27,7 +27,7 @@ help:
 	@echo "Available targets:"
 	@echo "  setup    - Install dependencies and setup environment"
 	@echo "  train    - Run 5-fold cross-validation training"
-	@echo "  hpo      - Run hyperparameter optimization (5000 trials)"
+	@echo "  hpo      - Run hyperparameter optimization (500 trials)"
 	@echo "  eval     - Evaluate fold 0"
 	@echo "  clean    - Clean outputs, cache, and logs"
 	@echo "  test     - Run tests"
@@ -76,8 +76,8 @@ train_psychbert:
 # ============================================================================
 # HPO - Run hyperparameter optimization with Optuna
 # ============================================================================
-# Searches 5000 hyperparameter combinations using Optuna
-# Each trial runs abbreviated 3-epoch K-fold CV
+# Searches 500 hyperparameter combinations using Optuna
+# Each trial runs full 100-epoch K-fold CV with patience 20
 # Results stored in SQLite (Optuna) and MLflow by default
 # Override n_trials or storage URIs via env if needed
 hpo:

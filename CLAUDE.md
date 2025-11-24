@@ -22,11 +22,11 @@ pip install -e '.[dev]'
 The main CLI is `src/Project/cli.py` which uses Hydra for configuration management:
 
 ```bash
-# K-fold cross-validation training
-python -m Project.cli train
+# K-fold cross-validation training (100 epochs, patience 20)
+python -m Project.cli train training.num_epochs=100 training.early_stopping_patience=20
 
-# Hyperparameter optimization
-python -m Project.cli hpo --n-trials 50
+# Hyperparameter optimization (500 trials)
+python -m Project.cli hpo --n-trials 500
 
 # Evaluate specific fold
 python -m Project.cli eval --fold 0
@@ -54,7 +54,7 @@ Uses Hydra with composition pattern. Main config: `configs/config.yaml`
 
 **Override configs via CLI:**
 ```bash
-python -m Project.cli train model.dropout=0.2 training.learning_rate=3e-5
+python -m Project.cli train model.dropout=0.2 training.learning_rate=3e-5 training.num_epochs=100 training.early_stopping_patience=20
 ```
 
 ## Architecture
@@ -75,14 +75,14 @@ The CLI (`cli.py`) orchestrates the full training pipeline:
 
 ### Hyperparameter Optimization
 
-Optuna with MedianPruner for early stopping. Study stored in `optuna.db` (SQLite). Search space defined in `configs/hpo/optuna.yaml`:
+Optuna with MedianPruner for early stopping. Each study targets 500 trials by default and stores results in `optuna.db` (SQLite). Search space defined in `configs/hpo/optuna.yaml`:
 - learning_rate (loguniform)
 - batch_size (categorical)
 - dropout (uniform)
 - weight_decay (loguniform)
 - warmup_ratio (uniform)
 
-HPO runs abbreviated K-fold CV (3 epochs) to accelerate search.
+HPO runs 100-epoch K-fold CV (patience 20) to stay aligned with full-training defaults.
 
 ## GPU Optimization (RTX 5090)
 

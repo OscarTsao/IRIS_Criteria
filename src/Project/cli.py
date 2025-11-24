@@ -2,8 +2,8 @@
 Command-line interface for DSM-5 NLI Binary Classification.
 
 Usage:
-    python -m Project.cli train                    # Run K-fold training
-    python -m Project.cli hpo --n-trials 50        # Run HPO
+    python -m Project.cli train training.num_epochs=100 training.early_stopping_patience=20  # Run K-fold training
+    python -m Project.cli hpo --n-trials 500       # Run HPO
     python -m Project.cli eval --fold 0            # Evaluate specific fold
 """
 
@@ -751,15 +751,17 @@ def main(config: DictConfig):
             "[red]Error:[/red] No command specified. Use command=train, command=hpo, or command=eval"
         )
         console.print("\nExamples:")
-        console.print("  python -m Project.cli command=train")
-        console.print("  python -m Project.cli command=hpo n_trials=50")
+        console.print(
+            "  python -m Project.cli command=train training.num_epochs=100 training.early_stopping_patience=20"
+        )
+        console.print("  python -m Project.cli command=hpo n_trials=500")
         console.print("  python -m Project.cli command=eval fold=0")
         sys.exit(1)
 
     if command == "train":
         run_kfold_training(config)
     elif command == "hpo":
-        n_trials = config.get("n_trials", 50)
+        n_trials = config.get("n_trials", 500)
         run_hpo(config, n_trials)
     elif command == "hpo_parallel":
         n_workers = config.get("n_workers", 2)
@@ -770,7 +772,7 @@ def main(config: DictConfig):
         # Internal command for parallel workers
         worker_config = config.get("hpo_worker", {})
         worker_id = worker_config.get("worker_id", None)
-        n_trials = worker_config.get("n_trials", 50)
+        n_trials = worker_config.get("n_trials", 500)
         max_total_trials = worker_config.get("max_total_trials", None)
 
         # Run worker with optional max_total_trials limit

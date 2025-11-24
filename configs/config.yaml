@@ -38,7 +38,7 @@ seed: 42
 #   - Optional parameters: n_trials (for hpo), fold (for eval)
 command: null
 # n_trials: default number of trials for HPO (can override via CLI or env)
-n_trials: 5000
+n_trials: 500
 # fold: target fold for eval command
 fold: 0
 

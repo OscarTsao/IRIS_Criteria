@@ -83,7 +83,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--study-name", default="bert_peft_hpo", help="Optuna study name")
     parser.add_argument("--storage-url", default="sqlite:///hpo.db", help="Optuna storage URL")
     parser.add_argument("--sampler", choices=["tpe", "grid"], default="tpe", help="Optuna sampler")
-    parser.add_argument("--n-trials", type=int, default=200, help="Maximum total trials")
+    parser.add_argument("--n-trials", type=int, default=500, help="Maximum total trials")
     parser.add_argument("--timeout", type=int, default=None, help="Global optimization timeout (s)")
     parser.add_argument(
         "--max-concurrent",
@@ -604,7 +604,7 @@ GRID_SPACE = {
     "regularization_type": ["none", "rdrop"],
     "threshold_strategy": ["fixed", "opt_on_val"],
     "max_seq_length": [256],
-    "num_epochs": [3, 5],
+    "num_epochs": [100],
     "weight_decay": [1e-4],
     "warmup_ratio": [0.05],
     "max_grad_norm": [1.0],
@@ -646,7 +646,7 @@ def sample_hparams(trial: Trial) -> Dict[str, Any]:
     hparams["regularization_type"] = trial.suggest_categorical("regularization_type", ["none", "mixout", "rdrop"])
     hparams["threshold_strategy"] = trial.suggest_categorical("threshold_strategy", ["fixed", "opt_on_val"])
     hparams["max_seq_length"] = trial.suggest_categorical("max_seq_length", [128, 192, 256, 320, 384])
-    hparams["num_epochs"] = trial.suggest_categorical("num_epochs", [3, 4, 5, 8])
+    hparams["num_epochs"] = trial.suggest_categorical("num_epochs", [100])
     hparams["weight_decay"] = trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
     hparams["warmup_ratio"] = trial.suggest_float("warmup_ratio", 0.0, 0.1)
     hparams["max_grad_norm"] = trial.suggest_categorical("max_grad_norm", [0.0, 1.0, 2.0])
@@ -1203,4 +1203,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

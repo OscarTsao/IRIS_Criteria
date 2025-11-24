@@ -34,14 +34,14 @@ Supporting metadata remains available for reference:
 Hydra drives all CLI commands via `configs/config.yaml`. Examples:
 
 ```bash
-# K-fold training (default: 5 folds)
-python -m dsm5_nli.cli command=train
+# K-fold training (100 epochs w/ patience 20, default: 5 folds)
+python -m dsm5_nli.cli command=train training.num_epochs=100 training.early_stopping_patience=20
 
 # Evaluate a saved fold checkpoint
 python -m dsm5_nli.cli command=eval fold=0
 
-# Hyper-parameter search with Optuna
-python -m dsm5_nli.cli command=hpo n_trials=20
+# Hyper-parameter search with Optuna (500 trials)
+python -m dsm5_nli.cli command=hpo n_trials=500
 ```
 
 Training logs accuracy, F1, precision, recall, and AUC per fold and saves the best checkpoint for each
@@ -58,7 +58,7 @@ Key config knobs:
 - Format & lint: `ruff check src tests` and `black src tests`
 - Type check: `mypy src`
 - Tests: `pytest`
-- End-to-end smoke test: `python -m dsm5_nli.cli command=train training.num_epochs=1`
+- End-to-end training check: `python -m dsm5_nli.cli command=train training.num_epochs=100 training.early_stopping_patience=20`
 - Evaluate a trained fold: `python -m dsm5_nli.cli command=eval fold=0` (requires checkpoint under `outputs/<experiment>/checkpoints`)
 
 ## Outputs & Tracking

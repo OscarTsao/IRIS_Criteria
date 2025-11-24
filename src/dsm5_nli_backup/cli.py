@@ -2,8 +2,8 @@
 Command-line interface for DSM-5 NLI Binary Classification.
 
 Usage:
-    python -m dsm5_nli.cli train                    # Run K-fold training
-    python -m dsm5_nli.cli hpo --n-trials 50        # Run HPO
+    python -m dsm5_nli.cli train training.num_epochs=100 training.early_stopping_patience=20  # Run K-fold training
+    python -m dsm5_nli.cli hpo --n-trials 500       # Run HPO
     python -m dsm5_nli.cli eval --fold 0            # Evaluate specific fold
 """
 
@@ -369,8 +369,8 @@ def run_hpo(config: DictConfig, n_trials: int):
                     early_stopping_patience=config.training.early_stopping_patience,
                 )
 
-                # Train (fewer epochs for HPO)
-                trainer.train(num_epochs=min(3, config.training.num_epochs), fold=fold)
+                # Train for the configured number of epochs (default 100 with patience 20)
+                trainer.train(num_epochs=config.training.num_epochs, fold=fold)
 
                 # Get best F1
                 fold_f1 = trainer.best_val_f1
@@ -439,15 +439,17 @@ def main(config: DictConfig):
             "[red]Error:[/red] No command specified. Use command=train, command=hpo, or command=eval"
         )
         console.print("\nExamples:")
-        console.print("  python -m dsm5_nli.cli command=train")
-        console.print("  python -m dsm5_nli.cli command=hpo n_trials=50")
+        console.print(
+            "  python -m dsm5_nli.cli command=train training.num_epochs=100 training.early_stopping_patience=20"
+        )
+        console.print("  python -m dsm5_nli.cli command=hpo n_trials=500")
         console.print("  python -m dsm5_nli.cli command=eval fold=0")
         sys.exit(1)
 
     if command == "train":
         run_kfold_training(config)
     elif command == "hpo":
-        n_trials = config.get("n_trials", 50)
+        n_trials = config.get("n_trials", 500)
         run_hpo(config, n_trials)
     elif command == "eval":
         console.print("[yellow]⚠[/yellow] Evaluation command not yet implemented")

@@ -2,7 +2,7 @@
 # Optuna Hyperparameter Optimization Configuration
 # ============================================================================
 # Defines HPO study settings, pruning strategy, and search space
-# Run via: python -m Project.cli command=hpo n_trials=5000
+# Run via: python -m Project.cli command=hpo n_trials=500
 # ============================================================================
 
 # ============================================================================
@@ -10,11 +10,11 @@
 # ============================================================================
 
 # n_trials: Number of hyperparameter combinations to evaluate
-#   - Default: 5000 (long-form exploration)
-#   - Each trial runs abbreviated K-fold CV (3 epochs per fold)
+#   - Default: 500 (paired with 100-epoch folds and patience 20)
+#   - Each trial runs full 100-epoch K-fold CV (patience 20)
 #   - Higher = better hyperparameters but longer runtime
-#   - Typical values: 20-100 for small search spaces; 5000 for exhaustive search
-n_trials: 5000
+#   - Typical values: 100-500 for medium search spaces; >500 for exhaustive search
+n_trials: 500
 
 # storage: Database backend for storing trial history
 #   - PostgreSQL recommended for parallel HPO (better concurrency)
