@@ -1,50 +1,73 @@
-# AI/ML Experiment Template
+# DSM-5 Criteria Matching
 
-Minimal template for ML experiments using PyTorch, Transformers, MLflow, and Optuna.
+End-to-end experimentation framework for classifying DSM-5 symptoms via natural language inference (NLI).
+Built on PyTorch + Hugging Face Transformers with Hydra configuration, MLflow tracking, and
+Optuna hyper-parameter optimization.
 
-## Quickstart
+## Environment Setup
 
-- Python 3.10+ recommended.
-- Create and activate a virtual environment, then install:
-
-```
+```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 python -m pip install --upgrade pip
 pip install -e '.[dev]'
 ```
 
-## Layout
+## Dataset
 
-- `src/Project/SubProject/models/model.py` – example model wrapper for Transformers.
-- `src/Project/SubProject/utils/` – utility helpers (`get_logger`, `set_seed`, MLflow helpers).
-- `mlruns/` – local MLflow runs (if using file-based tracking).
-- `outputs/` – suggested place for artifacts.
+The project now relies on a single unified ground-truth file:
 
-## MLflow
+- `data/groundtruth/criteria_matching_groundtruth.csv`
+  - Columns: `post_id`, `post`, `DSM5_symptom`, `groundtruth`
+  - Each row already represents a `(post, criterion)` pair with a binary label.
+  - The preprocessing step maps `DSM5_symptom` to the DSM-5 criterion text and renames the
+    label column internally.
 
-Configure MLflow for local tracking and run logging:
+Supporting metadata remains available for reference:
 
-```python
-from Project.SubProject.utils import configure_mlflow, enable_autologging, mlflow_run
+- `data/DSM5/MDD_Criteira.json` – canonical DSM-5 criterion definitions
+- `data/redsm5/*` – original posts/annotations (kept for provenance)
+- Other CSVs under `data/groundtruth/` – additional tasks that share the same schema
 
-configure_mlflow(tracking_uri="file:./mlruns", experiment="demo")
-enable_autologging()
+## Running Experiments
 
-with mlflow_run("hello", tags={"stage": "dev"}, params={"lr": 1e-4}):
-    # your training loop here
-    pass
+Hydra drives all CLI commands via `configs/config.yaml`. Examples:
+
+```bash
+# K-fold training (default: 5 folds)
+python -m Project.cli command=train
+
+# Evaluate a saved fold checkpoint
+python -m Project.cli command=eval fold=0
+
+# Hyper-parameter search with Optuna
+python -m Project.cli command=hpo n_trials=20
 ```
 
-## Development
+Key config knobs:
 
-- Run linters/formatters:
-```
-ruff check src tests
-black src tests
-```
-- Run tests (add your own under `tests/`):
-```
-pytest
-```
+- `data.groundtruth_csv` – location of the unified dataset
+- `data.criteria_json` – DSM-5 criterion metadata
+- `model.*`, `training.*`, `hpo.*` – composable overrides under `configs/`
 
+## Development Workflow
+
+- Format & lint: `ruff check src tests` and `black src tests`
+- Type check: `mypy src`
+- Tests: `pytest`
+- End-to-end smoke test: `python -m Project.cli command=train training.num_epochs=1`
+
+## Outputs & Tracking
+
+- `outputs/<experiment>` – checkpoints, fold artifacts, reports
+- `mlruns/` – MLflow tracking storage (default local SQLite backend)
+- `optuna.db` – Optuna study storage when using SQLite
+
+## Project Structure (partial)
+
+```
+configs/            # Hydra configs (root + model/training/hpo overrides)
+data/               # Groundtruth CSVs, DSM-5 metadata, legacy sources
+src/Project/        # CLI entrypoint, data pipeline, models, trainer, utils
+tests/              # Pytest suite covering configs/models/datasets
+```

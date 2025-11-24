@@ -49,3 +49,8 @@ mlruns/*
 
 # Local assistant config
 .claude/
+
+# Large groundtruth files (keep only criteria_matching_groundtruth.csv)
+data/groundtruth/evidence_sentence_groundtruth.csv
+data/groundtruth/evidence_squad_groundtruth.csv
+data/groundtruth/.~lock.*
