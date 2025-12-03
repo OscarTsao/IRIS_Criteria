@@ -107,12 +107,18 @@ def train(cfg: DictConfig):
             batch_size=cfg.data.batch_size,
             shuffle=True,
             num_workers=cfg.data.num_workers,
+            pin_memory=True,  # Faster GPU transfer
+            persistent_workers=True if cfg.data.num_workers > 0 else False,
+            prefetch_factor=2 if cfg.data.num_workers > 0 else None,
         )
         val_loader = DataLoader(
             val_dataset,
             batch_size=cfg.data.batch_size * 2,
             shuffle=False,
             num_workers=cfg.data.num_workers,
+            pin_memory=True,
+            persistent_workers=True if cfg.data.num_workers > 0 else False,
+            prefetch_factor=2 if cfg.data.num_workers > 0 else None,
         )
 
         # Create model (IRIS only)
@@ -187,9 +193,10 @@ def train(cfg: DictConfig):
                     total_iters=warmup_steps,
                 )
 
-        # Create MLflow logger
+        # Create MLflow logger and train (use context manager)
         run_name = f"{cfg.experiment.name}_fold{fold_idx}"
-        mlflow_logger = MLflowLogger(
+
+        with MLflowLogger(
             experiment_name=cfg.mlflow.experiment_name,
             run_name=run_name,
             tags={
@@ -197,62 +204,58 @@ def train(cfg: DictConfig):
                 "fold": str(fold_idx),
                 "model_type": cfg.model.model_type,
             },
-        )
+        ) as mlflow_logger:
+            # Log hyperparameters
+            mlflow_logger.log_params({
+                "model_type": cfg.model.model_type,
+                "num_epochs": cfg.training.num_epochs,
+                "batch_size": cfg.data.batch_size,
+                "learning_rate": cfg.training.optimizer.lr,
+                "loss_type": cfg.training.loss.type,
+                "fold": fold_idx,
+            })
 
-        # Log hyperparameters
-        mlflow_logger.log_params({
-            "model_type": cfg.model.model_type,
-            "num_epochs": cfg.training.num_epochs,
-            "batch_size": cfg.data.batch_size,
-            "learning_rate": cfg.training.optimizer.lr,
-            "loss_type": cfg.training.loss.type,
-            "fold": fold_idx,
-        })
+            # Create trainer
+            checkpoint_dir = Path(cfg.paths.checkpoint_dir) / f"fold_{fold_idx}"
+            trainer = Trainer(
+                model=model,
+                optimizer=optimizer,
+                loss_fn=loss_fn,
+                scheduler=scheduler,
+                device=cfg.device,
+                gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
+                max_grad_norm=cfg.training.max_grad_norm,
+                use_amp=cfg.training.use_amp,
+                amp_dtype=cfg.training.amp_dtype,
+                early_stopping_patience=cfg.training.early_stopping_patience,
+                checkpoint_dir=str(checkpoint_dir),
+                save_best_only=cfg.training.save_best_only,
+            )
 
-        # Create trainer
-        checkpoint_dir = Path(cfg.paths.checkpoint_dir) / f"fold_{fold_idx}"
-        trainer = Trainer(
-            model=model,
-            optimizer=optimizer,
-            loss_fn=loss_fn,
-            scheduler=scheduler,
-            device=cfg.device,
-            gradient_accumulation_steps=cfg.training.gradient_accumulation_steps,
-            max_grad_norm=cfg.training.max_grad_norm,
-            use_amp=cfg.training.use_amp,
-            amp_dtype=cfg.training.amp_dtype,
-            early_stopping_patience=cfg.training.early_stopping_patience,
-            checkpoint_dir=str(checkpoint_dir),
-            save_best_only=cfg.training.save_best_only,
-        )
+            # Train
+            logger.info(f"Training for {cfg.training.num_epochs} epochs...")
+            history = trainer.train(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                num_epochs=cfg.training.num_epochs,
+            )
 
-        # Train
-        logger.info(f"Training for {cfg.training.num_epochs} epochs...")
-        history = trainer.train(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            num_epochs=cfg.training.num_epochs,
-        )
+            # Log training history
+            from criteria_bge_hpo.utils import log_training_history
+            log_training_history(history, mlflow_logger)
 
-        # Log training history
-        from criteria_bge_hpo.utils import log_training_history
-        log_training_history(history, mlflow_logger)
+            # Save best metrics
+            best_val_loss = min(history["val_loss"])
+            best_val_acc = max(history["val_acc"])
 
-        # Save best metrics
-        best_val_loss = min(history["val_loss"])
-        best_val_acc = max(history["val_acc"])
+            fold_results.append({
+                "fold": fold_idx,
+                "best_val_loss": best_val_loss,
+                "best_val_acc": best_val_acc,
+            })
 
-        fold_results.append({
-            "fold": fold_idx,
-            "best_val_loss": best_val_loss,
-            "best_val_acc": best_val_acc,
-        })
-
-        mlflow_logger.log_metric("best_val_loss", best_val_loss)
-        mlflow_logger.log_metric("best_val_acc", best_val_acc)
-
-        # End run
-        mlflow_logger.end_run()
+            mlflow_logger.log_metric("best_val_loss", best_val_loss)
+            mlflow_logger.log_metric("best_val_acc", best_val_acc)
 
         logger.info(f"Fold {fold_idx} - Best val loss: {best_val_loss:.4f}, Best val acc: {best_val_acc:.4f}")
 
