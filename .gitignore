@@ -1,14 +1,8 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Distribution / packaging
+*.so
 .Python
 build/
 develop-eggs/
@@ -22,35 +16,52 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Logs and databases
-*.log
-*.db
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# MLflow
+mlruns/
+
+# Optuna
+optuna.db
+*.db-journal
 
 # Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
-# Editors
-.vscode/
-.idea/
+# OS
+.DS_Store
+Thumbs.db
 
-# Local AI/ML artifacts – keep dirs, ignore contents
-artifacts/*
-!artifacts/.gitkeep
-outputs/*
-!outputs/.gitkeep
-mlruns/*
-!mlruns/.gitkeep
+# Project-specific
+outputs/
+checkpoints/
+logs/
+*.log
 
-# Local assistant config
-.claude/
-
-# Large groundtruth files (keep only criteria_matching_groundtruth.csv)
-data/groundtruth/evidence_sentence_groundtruth.csv
-data/groundtruth/evidence_squad_groundtruth.csv
-data/groundtruth/.~lock.*
+# Temporary files
+*.tmp
+monitor_trial.sh

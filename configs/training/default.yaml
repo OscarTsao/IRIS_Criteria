@@ -1,119 +1,44 @@
-# ============================================================================
-# Training Hyperparameters Configuration
-# ============================================================================
-# Default training settings tuned for BAAI/bge-reranker-v2-m3 (XLM-R large)
-# All parameters can be overridden via CLI or HPO
-# ============================================================================
+# Training configuration
 
-# ============================================================================
-# CORE TRAINING HYPERPARAMETERS
-# ============================================================================
+# Optimizer
+optimizer:
+  name: "adamw"
+  lr: 2.0e-5
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
 
-# batch_size: Number of samples per training batch
-#   - Default: 8 (reranker backbone is memory intensive)
-#   - Larger = faster training but more memory (try 16)
-#   - Smaller = less memory but slower (try 4)
-batch_size: 8
+# Learning rate scheduler
+scheduler:
+  name: "linear_warmup"  # or "cosine", "constant", null
+  warmup_ratio: 0.1
+  warmup_steps: null  # If null, use warmup_ratio
 
-# learning_rate: AdamW learning rate for fine-tuning BGE reranker
-#   - Default: 1e-5 (stable for XLM-R large backbones)
-#   - Typical range: 5e-6 to 3e-5
-#   - Too high: unstable training, divergence
-#   - Too low: slow convergence, underfitting
-#   - HPO searches this range automatically
-learning_rate: 1e-5
-
-# num_epochs: Number of complete passes through training data
-#   - Default: 100 for thorough convergence on this dataset
-#   - Typical range: 3-100 for fine-tuning depending on patience/regularization
-#   - Monitor validation F1 to detect overfitting
-#   - Early stopping handles termination before hitting the max epoch count
-num_epochs: 100
-
-# early_stopping_patience: Number of epochs to wait for improvement before stopping
-#   - Patience of 20 prevents wasting compute once validation F1 plateaus
-#   - Counts consecutive epochs without improvement > 0
-#   - Larger patience = longer training, smaller = quicker exits but risk stopping too soon
-early_stopping_patience: 20
-
-# weight_decay: L2 regularization strength for AdamW optimizer
-#   - Default: 0.01 (standard for large Transformers)
-#   - Prevents overfitting by penalizing large weights
-#   - Typical range: 0.001 to 0.1
-#   - 0 = no regularization (may overfit)
-weight_decay: 0.01
-
-# ============================================================================
-# GPU OPTIMIZATION SETTINGS (RTX 5090 SPECIFIC)
-# ============================================================================
-# These settings provide 3-5x overall speedup on Ampere+ GPUs
-# Disable all if training on CPU or older GPUs
-optimization:
-  # use_bf16: Enable bfloat16 mixed precision training
-  #   - true: 2x speedup + 50% memory reduction (recommended for RTX 5090)
-  #   - false: Full FP32 precision (slower, more memory)
-  #   - BF16 maintains better numerical stability than FP16
-  #   - Requires Ampere+ GPU (RTX 30xx, 40xx, 50xx)
-  use_bf16: true
-
-  # use_torch_compile: Enable PyTorch 2.0+ JIT compilation
-  #   - true: 10-20% speedup via graph optimization (recommended)
-  #   - false: Eager execution mode
-  #   - First epoch slow (compilation), subsequent epochs faster
-  #   - Requires PyTorch 2.0+
-  #   - May cause issues with dynamic shapes or custom ops
-  use_torch_compile: false
-
-  # fused_adamw: Use fused AdamW optimizer kernel
-  #   - true: 5-10% speedup by fusing optimizer ops (recommended)
-  #   - false: Standard unfused AdamW
-  #   - Requires CUDA and PyTorch built with CUDA support
-  #   - Minimal downside, significant speed gain
-  fused_adamw: true
-
-# ============================================================================
-# ADVANCED TRAINING SETTINGS
-# ============================================================================
-
-# gradient_accumulation_steps: Accumulate gradients over N steps before update
-#   - Default: 1 (update every batch)
-#   - Simulates larger batch size: effective_batch = batch_size * accumulation_steps
-#   - Use when GPU memory limited (e.g., accumulation_steps=2 with batch_size=16 = effective 32)
-#   - Trade-off: slower training but same convergence as larger batch
-gradient_accumulation_steps: 1
-
-# max_grad_norm: Maximum gradient norm for clipping
-#   - Default: 1.0 (standard for Transformer encoders)
-#   - Prevents exploding gradients during training
-#   - Clips gradients with L2 norm > max_grad_norm to max_grad_norm
-#   - 0 = no clipping (may cause instability)
-#   - Typical range: 0.5 to 5.0
+# Training
+num_epochs: 20
+gradient_accumulation_steps: 2
 max_grad_norm: 1.0
 
-# warmup_ratio: Fraction of training steps for learning rate warmup
-#   - Default: 0.1 (10% of total steps)
-#   - Linearly increases LR from 0 to learning_rate over warmup period
-#   - Then linearly decays to 0 over remaining steps
-#   - Prevents initial instability in fine-tuning
-#   - Typical range: 0.05 to 0.15 (5-15%)
-warmup_ratio: 0.1
+# Mixed precision
+use_amp: true
+amp_dtype: "bfloat16"  # or "float16"
 
-# ============================================================================
-# DATA LOADING SETTINGS
-# ============================================================================
-# Controls for PyTorch DataLoader performance
+# Early stopping
+early_stopping_patience: 5
+monitor_metric: "val_loss"  # or "val_f1", "val_accuracy"
+higher_is_better: false  # true for F1/accuracy, false for loss
 
-# num_workers: Number of subprocesses for data loading
-#   - Default: 4 (good balance for most systems)
-#   - Higher = faster data loading but more CPU/memory
-#   - 0 = single-process loading (slow but low overhead)
-#   - Recommended: num_cpu_cores / 2
-#   - Too high may cause slowdown due to GIL contention
-num_workers: 4
+# Checkpointing
+save_best_only: true
+save_checkpoint_every_n_epochs: null  # If null, only save best
 
-# pin_memory: Pin CPU memory for faster GPU transfer
-#   - true: Faster host-to-device transfer (recommended with GPU)
-#   - false: Standard memory allocation
-#   - Only beneficial when training on GPU
-#   - Increases CPU memory usage slightly
-pin_memory: true
+# Loss function
+loss:
+  type: "focal"  # "bce", "weighted_bce", "focal"
+  focal_gamma: 2.0
+  focal_alpha: null  # Auto-computed if null
+  pos_weight: null  # Auto-computed if null
+
+# Logging
+log_every_n_steps: 10
+eval_every_n_epochs: 1

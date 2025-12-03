@@ -1,0 +1,25 @@
+# IRIS model configuration
+
+model_type: "iris"
+
+# Encoder (frozen)
+encoder_name: "sentence-transformers/all-mpnet-base-v2"  # 768-dim
+# Alternative: "sentence-transformers/all-MiniLM-L6-v2"  # 384-dim (faster)
+
+# IRIS architecture
+num_queries: 8  # Number of learnable query vectors
+k_retrieved: 12  # Number of chunks to retrieve per query
+embedding_dim: 768  # Must match encoder output dim
+temperature: 0.1  # Attention temperature (lower = sharper)
+
+# Query penalty loss
+query_penalty_lambda: 0.1
+query_penalty_threshold: 0.4
+
+# Classification head
+hidden_dim: 512
+dropout: 0.1
+
+# Retrieval settings
+use_gpu_retrieval: true  # Use GPU for FAISS if available
+build_retriever_batch_size: 32

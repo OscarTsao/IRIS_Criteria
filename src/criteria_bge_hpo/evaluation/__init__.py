@@ -1,5 +1,15 @@
-"""Evaluation modules."""
+"""Evaluation metrics and interpretability analysis."""
 
-from .evaluator import Evaluator, evaluate_per_criterion, display_per_criterion_results
+from .evaluator import (
+    BinaryClassificationMetrics,
+    IRISInterpretabilityAnalyzer,
+    PerCriterionEvaluator,
+    compute_aggregate_metrics,
+)
 
-__all__ = ["Evaluator", "evaluate_per_criterion", "display_per_criterion_results"]
+__all__ = [
+    "BinaryClassificationMetrics",
+    "PerCriterionEvaluator",
+    "IRISInterpretabilityAnalyzer",
+    "compute_aggregate_metrics",
+]

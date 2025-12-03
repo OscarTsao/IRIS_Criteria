@@ -1,0 +1,20 @@
+# Data configuration
+
+# Dataset
+max_length: 512  # Maximum sequence length
+batch_size: 8
+num_workers: 4
+
+# K-fold cross-validation
+n_folds: 5
+group_column: "post_id"  # Group by post to prevent leakage
+stratify_column: "groundtruth"
+
+# Chunking (for IRIS)
+use_chunking: false
+chunk_strategy: "sentence"  # or "word"
+max_sentences_per_chunk: 3
+overlap_sentences: 1
+
+# Class imbalance handling
+compute_class_weights: true

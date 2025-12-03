@@ -1,151 +1,179 @@
-"""Data loading and preprocessing for DSM-5 NLI."""
-
-from __future__ import annotations
+"""Data loading and preprocessing utilities for DSM-5 criteria matching."""
 
 import json
-from typing import Dict, Iterable
+from pathlib import Path
+from typing import Dict, Tuple
 
 import pandas as pd
-from hydra.utils import to_absolute_path
-from rich.console import Console
-
-console = Console()
+from sklearn.model_selection import train_test_split
 
 
-def _validate_required_columns(
-    df: pd.DataFrame, required: Iterable[str], source: str
-) -> None:
-    """Ensure required columns exist in dataframe."""
-    missing = set(required) - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"Missing required columns in {source}: {sorted(missing)}. "
-            "Verify the dataset matches the expected schema."
-        )
-
-
-def load_and_preprocess_data(config) -> pd.DataFrame:
-    """Load and preprocess all data for DSM-5 NLI training.
+def load_groundtruth_data(csv_path: str) -> pd.DataFrame:
+    """
+    Load groundtruth data from CSV file.
 
     Args:
-        config: Hydra configuration object
+        csv_path: Path to CSV file with columns: post_id, post, DSM5_symptom, groundtruth
 
     Returns:
-        DataFrame with columns: post_id, post, criterion_id, criterion, label, evidence_text
+        DataFrame with loaded data
+
+    Raises:
+        FileNotFoundError: If CSV file doesn't exist
+        ValueError: If required columns are missing
     """
-    console.print("\n[cyan]═══════════════════════════════════════════════════════════[/cyan]")
-    console.print(
-        "[cyan bold]               DATA LOADING & PREPROCESSING                 [/cyan bold]"
-    )
-    console.print("[cyan]═══════════════════════════════════════════════════════════[/cyan]\n")
+    csv_path = Path(csv_path)
 
-    # Load unified groundtruth data (already contains post/criterion pairs)
-    groundtruth_path = to_absolute_path(config.data.groundtruth_csv)
-    console.print(f"[yellow]Loading groundtruth from:[/yellow] {groundtruth_path}")
-    groundtruth_df = pd.read_csv(groundtruth_path)
-    console.print(f"[green]✓[/green] Loaded {len(groundtruth_df):,} rows")
+    if not csv_path.exists():
+        raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
+    df = pd.read_csv(csv_path)
+
+    # Verify required columns
     required_columns = {"post_id", "post", "DSM5_symptom", "groundtruth"}
-    _validate_required_columns(groundtruth_df, required_columns, groundtruth_path)
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {missing_columns}")
 
-    # Load DSM-5 criteria definitions
-    criteria_path = to_absolute_path(config.data.criteria_json)
-    console.print(f"[yellow]Loading DSM-5 criteria from:[/yellow] {criteria_path}")
-    with open(criteria_path, "r", encoding="utf-8") as handle:
-        criteria_data = json.load(handle)
+    # Convert groundtruth to int
+    df["groundtruth"] = df["groundtruth"].astype(int)
 
-    criteria_dict = {item["id"]: item["text"] for item in criteria_data["criteria"]}
-    console.print(f"[green]✓[/green] Loaded {len(criteria_dict)} DSM-5 criteria")
+    # Remove rows with missing data
+    initial_len = len(df)
+    df = df.dropna(subset=list(required_columns))
+    if len(df) < initial_len:
+        print(f"Warning: Dropped {initial_len - len(df)} rows with missing data")
 
-    # Create NLI pairs
-    console.print("\n[yellow]Preparing post-criterion pairs...[/yellow]")
+    return df
 
-    # Rename columns for consistency (groundtruth already has DSM5 A.1-A.10 ids)
-    pairs_df = groundtruth_df.rename(
-        columns={"DSM5_symptom": "criterion_id", "groundtruth": "label"}
-    ).copy()
 
-    # Map criterion IDs to full criterion text
-    pairs_df["criterion"] = pairs_df["criterion_id"].map(criteria_dict)
+def load_dsm5_criteria(json_path: str) -> Dict[str, str]:
+    """
+    Load DSM-5 criteria definitions from JSON file.
 
-    # Remove rows with missing values in required fields
-    before_drop = len(pairs_df)
-    pairs_df = pairs_df.dropna(subset=["post", "criterion", "criterion_id", "label"])
-    dropped = before_drop - len(pairs_df)
-    if dropped > 0:
-        console.print(f"[yellow]• Dropped {dropped} rows with missing required fields[/yellow]")
+    Args:
+        json_path: Path to JSON file with DSM-5 criteria
 
-    if pairs_df.empty:
-        raise ValueError("Groundtruth dataset is empty after preprocessing.")
+    Returns:
+        Dictionary mapping criterion_id (e.g., "A.1") to criterion text
 
-    # Ensure labels are integers (CSV may load as floats)
-    pairs_df["label"] = pairs_df["label"].astype(int)
+    Raises:
+        FileNotFoundError: If JSON file doesn't exist
+        ValueError: If JSON structure is invalid
+    """
+    json_path = Path(json_path)
 
-    # Load expert evidence annotations and map to criteria
-    annotations_path = to_absolute_path(
-        getattr(config.data, "annotations_csv", "data/redsm5/redsm5_annotations.csv")
+    if not json_path.exists():
+        raise FileNotFoundError(f"JSON file not found: {json_path}")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if "criteria" not in data:
+        raise ValueError("JSON must contain 'criteria' field")
+
+    # Extract criteria as dictionary
+    criteria_dict = {}
+    for criterion in data["criteria"]:
+        if "id" not in criterion or "text" not in criterion:
+            print(f"Warning: Skipping criterion without id or text: {criterion}")
+            continue
+
+        criterion_id = criterion["id"]
+        criterion_text = criterion["text"]
+
+        if not criterion_text or criterion_text.strip() == "":
+            print(f"Warning: Skipping criterion {criterion_id} with empty text")
+            continue
+
+        criteria_dict[criterion_id] = criterion_text
+
+    if not criteria_dict:
+        raise ValueError("No valid criteria found in JSON file")
+
+    return criteria_dict
+
+
+def get_train_test_split(
+    df: pd.DataFrame,
+    test_size: float = 0.2,
+    random_state: int = 42,
+    stratify: bool = True,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split data into train and test sets.
+
+    Args:
+        df: DataFrame to split
+        test_size: Proportion of data to use for test set (default: 0.2)
+        random_state: Random seed for reproducibility (default: 42)
+        stratify: Whether to stratify by groundtruth label (default: True)
+
+    Returns:
+        Tuple of (train_df, test_df)
+    """
+    if stratify:
+        stratify_col = df["groundtruth"]
+    else:
+        stratify_col = None
+
+    train_df, test_df = train_test_split(
+        df,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=stratify_col,
     )
-    console.print(f"[yellow]Loading annotations from:[/yellow] {annotations_path}")
-    annotations_df = pd.read_csv(annotations_path)
-    required_annotation_cols = {"post_id", "DSM5_symptom", "sentence_text", "status"}
-    _validate_required_columns(annotations_df, required_annotation_cols, annotations_path)
 
-    # Keep only positive evidence spans
-    annotations_df = annotations_df[annotations_df["status"] == 1].copy()
-    symptom_map: Dict[str, str] = {
-        "A.1": "DEPRESSED_MOOD",
-        "A.2": "ANHEDONIA",
-        "A.3": "APPETITE_CHANGE",
-        "A.4": "SLEEP_ISSUES",
-        "A.5": "PSYCHOMOTOR",
-        "A.6": "FATIGUE",
-        "A.7": "WORTHLESSNESS",
-        "A.8": "COGNITIVE_ISSUES",
-        "A.9": "SUICIDAL_THOUGHTS",
-    }
+    return train_df.reset_index(drop=True), test_df.reset_index(drop=True)
 
-    # Map criterion IDs to symptom names for joining evidence
-    pairs_df["symptom_name"] = pairs_df["criterion_id"].map(symptom_map)
 
-    annotations_df = annotations_df.rename(columns={"DSM5_symptom": "symptom_name"})
-    annotations_df = annotations_df[["post_id", "symptom_name", "sentence_text"]]
+def get_class_distribution(df: pd.DataFrame, label_col: str = "groundtruth") -> Dict[int, float]:
+    """
+    Calculate class distribution in dataset.
 
-    # Merge evidence spans onto pairs
-    pairs_df = pairs_df.merge(
-        annotations_df,
-        how="left",
-        on=["post_id", "symptom_name"],
-    )
+    Args:
+        df: DataFrame with labels
+        label_col: Name of label column (default: "groundtruth")
 
-    pairs_df = pairs_df.rename(columns={"sentence_text": "evidence_text"})
-    pairs_df["evidence_text"] = pairs_df["evidence_text"].fillna("")
+    Returns:
+        Dictionary mapping class label to proportion
+    """
+    value_counts = df[label_col].value_counts()
+    total = len(df)
 
-    # Select final columns in correct order
-    pairs_df = pairs_df[
-        ["post_id", "post", "criterion_id", "criterion", "label", "evidence_text"]
-    ]
+    distribution = {int(label): count / total for label, count in value_counts.items()}
 
-    # Optional subsampling for fast smoke tests
-    sample_size = getattr(config.data, "sample_size", None)
-    if sample_size:
-        sample_size = min(int(sample_size), len(pairs_df))
-        pairs_df = pairs_df.sample(n=sample_size, random_state=config.data.sample_seed)
-        console.print(
-            f"[yellow]• Using sample_size={sample_size} (seed={config.data.sample_seed}) for quick run[/yellow]"
-        )
+    return distribution
 
-    evidence_count = int((pairs_df["evidence_text"].str.len() > 0).sum())
 
-    positive = int((pairs_df["label"] == 1).sum())
-    negative = int((pairs_df["label"] == 0).sum())
+def print_dataset_summary(df: pd.DataFrame) -> None:
+    """
+    Print summary statistics for dataset.
 
-    console.print(f"[green]✓[/green] Prepared {len(pairs_df):,} NLI pairs")
-    console.print(f"  • Unique posts: {pairs_df['post_id'].nunique():,}")
-    console.print(f"  • Unique criteria: {pairs_df['criterion_id'].nunique():,}")
-    console.print(f"  • Evidence spans linked: {evidence_count:,}")
-    console.print(f"  • Positive samples: {positive:,}")
-    console.print(f"  • Negative samples: {negative:,}")
+    Args:
+        df: DataFrame to summarize
+    """
+    print("=" * 60)
+    print("Dataset Summary")
+    print("=" * 60)
+    print(f"Total samples: {len(df)}")
+    print(f"Unique posts: {df['post_id'].nunique()}")
+    print(f"Unique criteria: {df['DSM5_symptom'].nunique()}")
 
-    console.print("\n[cyan]═══════════════════════════════════════════════════════════[/cyan]\n")
+    # Class distribution
+    dist = get_class_distribution(df)
+    print("\nClass Distribution:")
+    for label, proportion in sorted(dist.items()):
+        count = int(proportion * len(df))
+        print(f"  Class {label}: {count:6d} ({proportion:6.1%})")
 
-    return pairs_df
+    # Post length statistics
+    if "post" in df.columns:
+        post_lengths = df["post"].str.split().str.len()
+        print("\nPost Length (words):")
+        print(f"  Mean:   {post_lengths.mean():.1f}")
+        print(f"  Median: {post_lengths.median():.1f}")
+        print(f"  Min:    {post_lengths.min()}")
+        print(f"  Max:    {post_lengths.max()}")
+
+    print("=" * 60)

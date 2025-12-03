@@ -1,148 +1,37 @@
-# ============================================================================
-# Main Configuration for DSM-5 NLI Binary Classification
-# ============================================================================
-# This is the root configuration file using Hydra's composition pattern.
-# It combines model, training, and HPO configs into a unified configuration.
-#
-# Usage:
-#   python -m criteria_bge_hpo.cli command=train
-#   python -m criteria_bge_hpo.cli command=train training.learning_rate=1e-5
-#
-# Hydra allows runtime overrides of any parameter via CLI arguments.
-# ============================================================================
+# Main configuration file for IRIS training
+# Use with Hydra: python -m criteria_bge_hpo.cli train
 
 defaults:
-  - model: bge_reranker   # Model architecture config (bge_reranker.yaml)
-  - training: default     # Training hyperparameters (default.yaml)
-  - augmentation: default # Evidence-span augmentation settings
-  - hpo: pc_ce            # HPO search space (pc_ce.yaml)
-  - _self_                # This file's settings override the above
+  - model: iris
+  - training: default
+  - data: default
+  - _self_
 
-# ============================================================================
-# EXPERIMENT SETTINGS
-# ============================================================================
-# experiment_name: Unique identifier for this experimental run
-#   - Used for MLflow experiment naming
-#   - Used for output directory naming
-#   - Best practice: descriptive name like "dsm5_criteria_matching_v2"
-experiment_name: dsm5_criteria_matching
+# Experiment tracking
+experiment:
+  name: "criteria_matching"
+  run_name: null  # Auto-generated if null
+  tags:
+    task: "binary_classification"
+    dataset: "dsm5_criteria"
 
-# seed: Random seed for reproducibility
-#   - Controls all random operations (Python random, NumPy, PyTorch, Transformers)
-#   - Same seed + same config = stable results (TF32 enabled by default)
-#   - Typical values: 42, 0, 2023
+# MLflow
+mlflow:
+  tracking_uri: "file:./mlruns"
+  experiment_name: "${experiment.name}"
+  log_model: true
+  log_artifacts: true
+
+# Random seed for reproducibility
 seed: 42
 
-# command: CLI command to execute (train, hpo, eval)
-#   - Set via CLI: command=train, command=hpo, command=eval
-#   - Used by cli.py to determine which function to run
-#   - Optional parameters: n_trials (for hpo), fold (for eval)
-command: null
-# n_trials: default number of trials for HPO (can override via CLI or env)
-n_trials: 500
-# fold: target fold for eval command
-fold: 0
+# Device
+device: "cuda"  # or "cpu"
 
-# ============================================================================
-# DATA CONFIGURATION
-# ============================================================================
-# Paths to dataset files and tokenization settings
-data:
-  # groundtruth_csv: Unified dataset with post/criterion pairs and labels
-  #   Expected columns: post_id, post, DSM5_symptom, groundtruth
-  #   Mapped internally to criterion_id/label for modeling
-  groundtruth_csv: data/groundtruth/criteria_matching_groundtruth.csv
-
-  # criteria_json: DSM-5 Major Depressive Disorder criteria definitions
-  #   Format: {"criteria": [{"id": "A.1", "text": "..."}]}
-  criteria_json: data/DSM5/MDD_Criteria.json
-
-  # annotations_csv: Expert evidence spans aligned to DSM-5 symptoms
-  #   Used for evidence-only augmentation during training
-  annotations_csv: data/redsm5/redsm5_annotations.csv
-
-  # sample_size: Optional row count for quick smoke tests (null = full dataset)
-  sample_size: null
-  # sample_seed: Deterministic sampling seed for reproducible subsets
-  sample_seed: ${seed}
-
-  # max_length: Maximum sequence length for tokenization
-  #   - Sequences longer than this are truncated
-  #   - Format: [CLS] post [SEP] criterion [SEP] with padding to max_length
-  #   - Trade-off: longer = more context but slower training
-  max_length: 512
-
-# ============================================================================
-# AUGMENTATION SETTINGS
-# ============================================================================
-# Evidence-only augmentation applied to positive samples during training
-augmentation:
-  enable: false
-  lib: nlpaug        # nlpaug or textattack (nlpaug implemented)
-  type: synonym      # synonym or contextual
-  prob: 0.0          # probability per-sample to augment evidence span
-
-# ============================================================================
-# K-FOLD CROSS-VALIDATION
-# ============================================================================
-# Stratified K-fold with post-level grouping to prevent data leakage
-kfold:
-  # n_splits: Number of folds for cross-validation
-  #   - 5 is standard (80% train / 20% val per fold)
-  #   - Higher values = more reliable metrics but slower training
-  #   - Each fold trains a separate model
-  n_splits: 5
-
-  # group_by_post: CRITICAL for preventing data leakage
-  #   - true: All pairs from same post_id stay in same fold (recommended)
-  #   - false: Random split (WILL LEAK - same post in train and val)
-  #   - See training/kfold.py for detailed explanation
-  group_by_post: true
-
-# ============================================================================
-# MLFLOW EXPERIMENT TRACKING
-# ============================================================================
-# MLflow logs metrics, parameters, models, and artifacts for each run
-mlflow:
-  # tracking_uri: Where to store MLflow data
-  #   - "file:mlruns" - Local file store (default, creates mlruns/ directory)
-  #   - "postgresql://user:pass@host/db" - PostgreSQL backend
-  #   - Override via env: export MLFLOW_TRACKING_URI=postgresql://...
-  tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,file:mlruns}
-
-  # experiment_name: MLflow experiment name (references ${experiment_name} above)
-  #   - All runs from this config go under this experiment
-  #   - Allows grouping related runs together
-  experiment_name: ${experiment_name}
-
-# ============================================================================
-# REPRODUCIBILITY SETTINGS
-# ============================================================================
-# Controls for reproducible training and result replication
-reproducibility:
-  # seed: Random seed (references ${seed} defined above)
-  seed: ${seed}
-
-  # deterministic: Enable deterministic algorithms (slightly slower but reproducible)
-  deterministic: false
-
-  # tf32: Enable TensorFloat-32 operations on RTX 5090 (always enabled)
-  #   - true: 2-3x matmul speedup with minimal accuracy loss
-  #   - false: Standard FP32 operations
-  #   - Only affects Ampere+ GPUs (RTX 30xx, 40xx, 50xx)
-  #   - Trade-off: slight non-determinism for major speed gain
-  tf32: true
-
-# ============================================================================
-# OUTPUT PATHS
-# ============================================================================
-# Directories for saving models, checkpoints, and artifacts
-# output_dir: Root directory for all experiment outputs
-#   - Uses ${experiment_name} for unique naming
-#   - Structure: outputs/dsm5_criteria_matching/
-output_dir: outputs/${experiment_name}
-
-# checkpoint_dir: Model checkpoint storage location
-#   - Saves best model per fold: fold_0_best.pt, fold_1_best.pt, etc.
-#   - Includes model state_dict, optimizer state, and config
-checkpoint_dir: ${output_dir}/checkpoints
+# Paths
+paths:
+  data_dir: "data"
+  groundtruth_csv: "${paths.data_dir}/groundtruth/criteria_matching_groundtruth.csv"
+  dsm5_json: "${paths.data_dir}/DSM5/MDD_Criteria.json"
+  checkpoint_dir: "checkpoints/${experiment.name}"
+  output_dir: "outputs/${experiment.name}"
