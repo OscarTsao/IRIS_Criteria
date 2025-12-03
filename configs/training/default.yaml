@@ -3,7 +3,7 @@
 # Optimizer
 optimizer:
   name: "adamw"
-  lr: 2.0e-5
+  lr: 1.0e-4  # Increased for larger batch size (was 2e-5)
   weight_decay: 0.01
   betas: [0.9, 0.999]
   eps: 1.0e-8
@@ -16,12 +16,12 @@ scheduler:
 
 # Training
 num_epochs: 20
-gradient_accumulation_steps: 2
+gradient_accumulation_steps: 1  # Disabled - not needed with batch_size=64
 max_grad_norm: 1.0
 
-# Mixed precision
+# Mixed precision (optimized for RTX 2080)
 use_amp: true
-amp_dtype: "bfloat16"  # or "float16"
+amp_dtype: "float16"  # FP16 is faster than BF16 on RTX 2080
 
 # Early stopping
 early_stopping_patience: 5
