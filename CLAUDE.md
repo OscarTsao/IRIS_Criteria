@@ -30,6 +30,30 @@ make train
 make hpo
 ```
 
+## Dataset: DSM-5 Criteria (A.1 - A.10)
+
+**10 Criteria Total**: 9 official DSM-5 MDD criteria + 1 special criterion
+
+### A.1 - A.9: Official DSM-5 MDD Criteria
+Standard Major Depressive Disorder diagnostic criteria (depressed mood, anhedonia, sleep, weight, etc.)
+
+### A.10: Non-DSM-5 Clinical Criterion (Special)
+**Definition**: "Non-DSM-5 clinical or positive discriminations"
+
+**Purpose**: Captures posts with clinical/mental health content that do NOT match any DSM-5 MDD criteria (A.1-A.9). Used for negative discrimination of other mental health conditions (anxiety, ADHD, PTSD, etc.) from MDD symptoms.
+
+**Statistics**:
+- Total samples: 1,484 (same as other criteria)
+- Positive rate: 5.8% (86/1484)
+- Lower positive rate than DSM-5 criteria (serves as negative discriminator)
+
+**Example A.10 posts**:
+- Other disorders: "diagnosed with ADHD, C-PTSD, and ASD..."
+- Treatment discussions: "switched to Trazodone..."
+- Non-MDD clinical content: "How did you choose your new name?" (trans identity)
+
+**See**: `docs/DATA_DESCRIPTION.md` for full details on all 10 criteria.
+
 ## Development Commands
 
 ### Testing

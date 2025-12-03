@@ -36,6 +36,10 @@
       {
         "id": "A.9",
         "text": "Recurrent thoughts of death (not just fear of dying), recurrent suicidal ideation without a specific plan, or a suicide attempt or a specific plan for committing suicide."
+      },
+      {
+        "id": "A.10",
+        "text": "Non-DSM-5 clinical or positive discriminations. This criterion captures posts with clinical/mental health content that do not match any of the specific DSM-5 Major Depressive Disorder criteria (A.1-A.9). Used for negative discrimination of non-MDD clinical presentations."
       }
     ]
   }
