@@ -52,12 +52,29 @@ def train(cfg: DictConfig):
         CriterionMatchingDataset,
     )
     from criteria_bge_hpo.training import create_kfold_splits, Trainer, create_loss_function
-    from criteria_bge_hpo.utils import setup_mlflow, MLflowLogger
+    from criteria_bge_hpo.utils import (
+        setup_mlflow,
+        MLflowLogger,
+        print_header,
+        print_info,
+        print_success,
+        print_fold_header,
+        print_training_summary,
+        print_fold_results,
+    )
     from torch.utils.data import DataLoader, Subset
 
-    # Print config
-    logger.info("Configuration:")
-    logger.info(OmegaConf.to_yaml(cfg))
+    # Print styled header
+    print_header(
+        "IRIS Training Pipeline",
+        f"Experiment: {cfg.experiment.name} | Model: {cfg.model.model_type}"
+    )
+
+    # Print config info
+    print_info(f"Device: {cfg.device}")
+    print_info(f"Num epochs: {cfg.training.num_epochs}")
+    print_info(f"Loss type: {cfg.training.loss.type}")
+    print_info(f"K-folds: {cfg.data.n_folds}")
 
     # Set seed
     set_seed(cfg.seed)
@@ -86,13 +103,16 @@ def train(cfg: DictConfig):
     fold_results = []
 
     for fold_idx, (train_idx, val_idx) in enumerate(splits):
-        logger.info(f"\n{'='*70}")
-        logger.info(f"Fold {fold_idx + 1}/{cfg.data.n_folds}")
-        logger.info(f"{'='*70}")
-
-        # Create datasets
+        # Print fold header with Rich
         train_df = df.iloc[train_idx]
         val_df = df.iloc[val_idx]
+
+        print_fold_header(
+            fold_idx,
+            cfg.data.n_folds,
+            len(train_df),
+            len(val_df)
+        )
 
         train_dataset = CriterionMatchingDataset(
             train_df, criteria, tokenizer=None, max_length=cfg.data.max_length
@@ -257,20 +277,17 @@ def train(cfg: DictConfig):
             mlflow_logger.log_metric("best_val_loss", best_val_loss)
             mlflow_logger.log_metric("best_val_acc", best_val_acc)
 
-        logger.info(f"Fold {fold_idx} - Best val loss: {best_val_loss:.4f}, Best val acc: {best_val_acc:.4f}")
+            # Print training summary
+            print_training_summary(history)
+            print_success(f"Fold {fold_idx + 1} complete | Val Loss: {best_val_loss:.4f} | Val Acc: {best_val_acc:.4f}")
 
-    # Log aggregate results
-    logger.info(f"\n{'='*70}")
-    logger.info("K-Fold Cross-Validation Results")
-    logger.info(f"{'='*70}")
+    # Print final results with Rich table
+    print_fold_results(fold_results)
 
     mean_loss = np.mean([r["best_val_loss"] for r in fold_results])
     std_loss = np.std([r["best_val_loss"] for r in fold_results])
     mean_acc = np.mean([r["best_val_acc"] for r in fold_results])
     std_acc = np.std([r["best_val_acc"] for r in fold_results])
-
-    logger.info(f"Mean val loss: {mean_loss:.4f} ± {std_loss:.4f}")
-    logger.info(f"Mean val acc:  {mean_acc:.4f} ± {std_acc:.4f}")
 
     # Log to MLflow
     with MLflowLogger(
@@ -288,7 +305,7 @@ def train(cfg: DictConfig):
         summary_logger.log_metric("cv_val_acc_std", std_acc)
         summary_logger.log_dict(fold_results, "fold_results.json")
 
-    logger.info("Training complete!")
+    print_success("Training complete!")
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="config")

@@ -8,6 +8,21 @@ from .mlflow_setup import (
     log_training_history,
     setup_mlflow,
 )
+from .rich_console import (
+    console,
+    print_header,
+    print_success,
+    print_warning,
+    print_error,
+    print_info,
+    print_config_table,
+    print_fold_header,
+    print_training_summary,
+    print_fold_results,
+    print_hpo_summary,
+    print_model_summary,
+    create_training_progress,
+)
 
 __all__ = [
     # Logging
@@ -18,4 +33,18 @@ __all__ = [
     "log_training_history",
     "log_kfold_results",
     "get_or_create_experiment",
+    # Rich console
+    "console",
+    "print_header",
+    "print_success",
+    "print_warning",
+    "print_error",
+    "print_info",
+    "print_config_table",
+    "print_fold_header",
+    "print_training_summary",
+    "print_fold_results",
+    "print_hpo_summary",
+    "print_model_summary",
+    "create_training_progress",
 ]
