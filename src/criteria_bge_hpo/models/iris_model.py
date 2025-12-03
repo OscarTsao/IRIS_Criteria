@@ -256,6 +256,8 @@ class IRISForCriterionMatching(nn.Module):
         encoder_name: str = "sentence-transformers/all-mpnet-base-v2",
         hidden_dim: int = 256,
         dropout: float = 0.1,
+        query_penalty_lambda: float = 0.1,
+        query_penalty_threshold: float = 0.4,
     ):
         """Initialize IRIS for criterion matching."""
         super().__init__()
@@ -273,6 +275,9 @@ class IRISForCriterionMatching(nn.Module):
             embedding_dim=embedding_dim,
             temperature=temperature,
         )
+
+        # Query penalty loss
+        self.query_penalty_loss = QueryPenaltyLoss(query_penalty_lambda, query_penalty_threshold)
 
         # Classification head (combines post aggregation + criterion)
         input_dim = num_queries * embedding_dim + embedding_dim
