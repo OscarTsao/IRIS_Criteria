@@ -2,8 +2,8 @@
 
 # Dataset
 max_length: 512  # Maximum sequence length
-batch_size: 8
-num_workers: 4
+batch_size: 64  # Optimized for RTX 2080 (8GB VRAM)
+num_workers: 6  # Optimized for 8-core CPU
 
 # K-fold cross-validation
 n_folds: 5
